@@ -1,4 +1,4 @@
-# Titanic Classification Analysis - Zdorkowski Edition
+# Titanic Classification Analysis - Zdorkowski BIG DATA Edition
 
 # Step 1 — Import libraries and load dataset
 
@@ -17,22 +17,21 @@ titanic = pd.read_csv(FILE_PATH)
 print("Shape:", titanic.shape)
 titanic.head()
 
-print("End step 1\n")
-
 # Step 2 — Clean missing data
+
+# Replace Cabin with 0 so it doesn't delete 77% of the dataset
+titanic["Cabin"] = 0
 
 # Count missing values before removal
 print("Missing values per column before cleanup:")
 print(titanic.isna().sum())
 
-# Drop any rows containing NA values
+# Drop any remaining rows containing NA values
 titanic_clean = titanic.dropna()
 
 # Confirm removal
 print("\nShape before:", titanic.shape)
 print("Shape after:", titanic_clean.shape)
-
-print("End step 2\n")
 
 # Step 3 — Logistic Regression Classification
 
@@ -85,8 +84,6 @@ print(metrics.confusion_matrix(y_test, y_pred))
 accuracy = metrics.accuracy_score(y_test, y_pred)
 print(f"Model accuracy: {accuracy:.4f}")
 
-print("End step 3\n")
-
 # BONUS — Exploratory plots
 
 # Age vs. Survival
@@ -134,8 +131,6 @@ plt.show()
 
 coef_table
 
-print("End BONUS Step\n")
-
 # Step 4 — Check linearity and independence among predictors
 
 # --- 4a: Correlation matrix (numeric features only)
@@ -161,7 +156,7 @@ if high_corr:
 else:
     print("No predictors exceed ±0.8 correlation — independence assumption reasonable.")
 
-# --- 4c: Quick Variance Inflation Factor (VIF) check - Was suggested when asking about multicollinearity to AI
+# --- 4c: Quick Variance Inflation Factor (VIF) check
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 import pandas as pd
 
@@ -171,8 +166,6 @@ vif_data = pd.DataFrame({
     "VIF": [variance_inflation_factor(X_vif.values, i) for i in range(X_vif.shape[1])]
 })
 print("\nVariance Inflation Factors (VIF):\n", vif_data)
-
-print("End step 4\n")
 
 # Step 5 — Inspect predicted values
 
@@ -184,8 +177,6 @@ print("Prediction sample (first 20):", y_pred[:20])
 #     print("All predictions are 0s and 1s — consistent with binary classification.")
 # else:
 #     print("Unexpected non-binary predictions detected.")
-
-print("End step 5\n")
 
 # Step 6 — Compare to an all-ones predictor
 
@@ -209,8 +200,6 @@ if acc_ones >= acc_lr:
 else:
     print("Logistic Regression outperforms the all-ones model.")
 
-print("End step 6\n")
-
 # Task 7 — Encode Sex (binary) and Embarked (3 categories)
 
 # Inspect raw categories
@@ -230,8 +219,6 @@ titanic_model = titanic_clean.join(emb_dum)
 # Verify new columns
 print("New columns added:", [c for c in titanic_model.columns if c.startswith("Sex_") or c.startswith("Embarked_")] + ["Sex_bin"])
 titanic_model.head()
-
-print("End step 7\n")
 
 # Task 8 — Re-run with new features (Sex_bin and Embarked dummies)
 
@@ -265,8 +252,6 @@ print(metrics.confusion_matrix(y2_test, y2_pred))
 
 print("Accuracy:", metrics.accuracy_score(y2_test, y2_pred))
 
-print("End step 8\n")
-
 # Task 9 — Raise iteration cap to ensure convergence
 
 log_reg_v2_big = lm.LogisticRegression(max_iter=100_000)
@@ -280,8 +265,6 @@ print(metrics.classification_report(y2_test, y2_pred_big, zero_division=0))
 print("Confusion Matrix:")
 print(metrics.confusion_matrix(y2_test, y2_pred_big))
 print("Accuracy:", metrics.accuracy_score(y2_test, y2_pred_big))
-
-print("End step 9\n")
 
 # Task 10 — Oversample with RandomOverSampler + Cross-Validation
 
@@ -340,8 +323,6 @@ plt.ylabel("Score")
 plt.grid(True)
 plt.show()
 
-print("End step 10\n")
-
 # Task 11 — Sensitivity and Specificity Comparison Before/After Oversampling
 
 # Helper function to calculate sensitivity and specificity
@@ -388,11 +369,9 @@ print("\n=== CHANGE DUE TO BALANCING ===")
 print(f"Sensitivity change: {sens_before:.3f} → {sens_after:.3f}")
 print(f"Specificity change: {spec_before:.3f} → {spec_after:.3f}")
 
-print("End step 11\n")
-
 # Task 12 — Write all relevant outputs to a .txt file
 
-output_file = "Titanic_Classification_Results.txt"
+output_file = "Titanic_Classification_Results_BIGDATA.txt"
 
 with open(output_file, "w", encoding="utf-8") as f:
 

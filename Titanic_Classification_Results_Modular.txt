@@ -1,0 +1,48 @@
+TITANIC CLASSIFICATION ANALYSIS — RESULTS
+==================================================
+
+DATASET INFO
+Original rows: 891
+Rows after dropna(): 183
+
+TASK 3 — BASELINE LOGISTIC REGRESSION (numeric features)
+Accuracy: 0.7838
+Confusion Matrix:
+[[ 4  8]
+ [ 0 25]]
+
+TASK 6 — ALL-ONES CLASSIFIER
+Accuracy: 0.6757
+Confusion Matrix:
+[[ 0 12]
+ [ 0 25]]
+
+TASK 9 — LOGISTIC REGRESSION WITH Sex + Embarked
+Accuracy: 0.7297
+Confusion Matrix:
+[[ 6  6]
+ [ 4 21]]
+
+TASK 10 — CROSS-VALIDATION RESULTS (5-fold stratified)
+Baseline fold accuracies:
+[0.8108 0.7568 0.7568 0.6667 0.8333]
+Baseline mean accuracy: 0.7649
+Baseline std dev: 0.0576
+
+Oversampled fold accuracies:
+[0.7838 0.7568 0.7297 0.5556 0.7778]
+Oversampled mean accuracy: 0.7207
+Oversampled std dev: 0.0847
+
+Change in mean accuracy (oversampled - baseline): -0.0441
+
+TASK 11 — SENSITIVITY & SPECIFICITY
+Before oversampling:
+  Sensitivity (Recall for class 1): 0.8400
+  Specificity (True Negative Rate): 0.5000
+
+After oversampling:
+  Sensitivity (Recall for class 1): 0.6400
+  Specificity (True Negative Rate): 0.6667
+
+END OF REPORT
