@@ -12,10 +12,10 @@ Confusion Matrix:
  [ 0 25]]
 
 TASK 6 — ALL-ONES CLASSIFIER
-Accuracy: 0.6757
+Accuracy: 0.6712
 Confusion Matrix:
-[[ 0 12]
- [ 0 25]]
+[[ 0 48]
+ [ 0 98]]
 
 TASK 9 — LOGISTIC REGRESSION WITH Sex + Embarked
 Accuracy: 0.7297

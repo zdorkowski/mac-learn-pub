@@ -19,65 +19,56 @@ def sensitivity_specificity(y_true, y_pred):
     return tp / (tp + fn), tn / (tn + fp)
 
 
-def main():
-    # Load and clean
-    titanic = pd.read_csv(FILE_PATH)
+def load_and_clean(path):
+    titanic = pd.read_csv(path)
     print("Shape:", titanic.shape)
     print("Missing values per column before cleanup:")
     print(titanic.isna().sum())
     titanic_clean = titanic.dropna()
     print("\nShape before:", titanic.shape)
     print("Shape after:", titanic_clean.shape)
+    return titanic, titanic_clean
 
-    # Task 3 — numeric baseline with corr filter
-    base_predictors = ["Pclass", "Age", "SibSp", "Parch", "Fare"]
-    target = "Survived"
-    corr_with_y = titanic_clean[base_predictors + [target]].corr()[target].drop(target)
-    print("Correlation of predictors with Survived:")
-    print(corr_with_y, "\n")
-    predictors = [c for c, v in corr_with_y.items() if abs(v) >= 0.1]
-    print("Keeping predictors with |corr| >= 0.1:")
-    print(predictors, "\n")
 
-    X_num = titanic_clean[predictors]
-    y = titanic_clean[target]
+def run_logistic(X, y, label, max_iter=1000):
     X_train, X_test, y_train, y_test = ms.train_test_split(
-        X_num, y, test_size=0.2, random_state=1, stratify=y
+        X, y, test_size=0.2, random_state=1, stratify=y
     )
-    log_reg = lm.LogisticRegression(max_iter=1000)
-    log_reg.fit(X_train, y_train)
-    y_pred = log_reg.predict(X_test)
-    print("=== Baseline Classification Report (numeric only) ===")
+    clf = lm.LogisticRegression(max_iter=max_iter)
+    clf.fit(X_train, y_train)
+    y_pred = clf.predict(X_test)
+    conf = metrics.confusion_matrix(y_test, y_pred)
+    acc = metrics.accuracy_score(y_test, y_pred)
+    print(f"=== {label} ===")
     print(metrics.classification_report(y_test, y_pred, zero_division=0))
     print("Confusion Matrix:")
-    print(metrics.confusion_matrix(y_test, y_pred))
-    acc_lr = metrics.accuracy_score(y_test, y_pred)
-    print("Accuracy:", acc_lr)
+    print(conf)
+    print("Accuracy:", acc)
+    return clf, (X_train, X_test, y_train, y_test, y_pred, conf, acc)
 
-    # Bonus plots
-    plt.figure(figsize=(6, 4))
-    plt.scatter(titanic_clean["Age"], titanic_clean["Survived"], alpha=0.5)
-    plt.title("Age vs Survival")
-    plt.xlabel("Age")
-    plt.ylabel("Survived")
-    plt.grid(True)
-    plt.show()
 
-    plt.figure(figsize=(6, 4))
-    plt.scatter(titanic_clean["Fare"], titanic_clean["Survived"], alpha=0.5)
-    plt.title("Fare vs Survival")
-    plt.xlabel("Fare")
-    plt.ylabel("Survived")
-    plt.grid(True)
-    plt.show()
+def plot_basics(titanic_clean, predictors, log_reg):
+    # Age & Fare vs Survival
+    for col in ["Age", "Fare"]:
+        plt.figure(figsize=(6, 4))
+        plt.scatter(titanic_clean[col], titanic_clean["Survived"], alpha=0.5)
+        plt.title(f"{col} vs Survival")
+        plt.xlabel(col)
+        plt.ylabel("Survived")
+        plt.grid(True)
+        plt.show()
 
+    # Passenger class bar chart
     plt.figure(figsize=(5, 4))
-    titanic_clean["Pclass"].value_counts().sort_index().plot(kind="bar", edgecolor="black")
+    titanic_clean["Pclass"].value_counts().sort_index().plot(
+        kind="bar", edgecolor="black"
+    )
     plt.title("Passenger Class Distribution")
     plt.xlabel("Pclass")
     plt.ylabel("Count")
     plt.show()
 
+    # Coefficients
     coef_table = pd.DataFrame(
         {"Feature": predictors, "Coefficient": log_reg.coef_[0]}
     ).sort_values("Coefficient")
@@ -90,10 +81,13 @@ def main():
     plt.ylabel("Feature")
     plt.grid(True)
     plt.show()
+    return coef_table
 
-    # Step 4 — Correlation matrix + VIF
+
+def check_linearity_vif(titanic_clean, predictors):
     corr = titanic_clean[predictors].corr(numeric_only=True)
     print("Correlation Matrix:\n", corr, "\n")
+
     plt.figure(figsize=(6, 5))
     plt.imshow(corr, cmap="coolwarm", interpolation="nearest")
     plt.title("Correlation Matrix (Predictors)")
@@ -103,11 +97,10 @@ def main():
     plt.tight_layout()
     plt.show()
 
-    threshold = 0.8
     high_corr = [
         (a, b, corr.loc[a, b])
         for a in predictors for b in predictors
-        if a != b and abs(corr.loc[a, b]) > threshold
+        if a != b and abs(corr.loc[a, b]) > 0.8
     ]
     if high_corr:
         print("Highly correlated features (possible multicollinearity):")
@@ -120,16 +113,17 @@ def main():
     vif = pd.DataFrame(
         {
             "Feature": X_vif.columns,
-            "VIF": [variance_inflation_factor(X_vif.values, i) for i in range(X_vif.shape[1])],
+            "VIF": [
+                variance_inflation_factor(X_vif.values, i)
+                for i in range(X_vif.shape[1])
+            ],
         }
     )
     print("\nVariance Inflation Factors (VIF):\n", vif, "\n")
+    return corr, vif
 
-    # Step 5 — Inspect predictions
-    print("Unique prediction values:", np.unique(y_pred))
-    print("Prediction sample (first 20):", y_pred[:20])
 
-    # Step 6 — all-ones comparison
+def all_ones_comparison(y_test, y_pred, acc_lr):
     all_ones = np.ones_like(y_test)
     print("\n=== All-Ones Classifier ===")
     print(metrics.classification_report(y_test, all_ones, zero_division=0))
@@ -142,8 +136,10 @@ def main():
         print("All-ones matches or beats logistic → imbalance / weak separation.")
     else:
         print("Logistic regression outperforms all-ones.")
+    return all_ones, acc_ones
 
-    # Task 7 — encode Sex + Embarked
+
+def encode_sex_embarked(titanic_clean):
     print("Unique Sex values:", titanic_clean["Sex"].dropna().unique())
     print("Unique Embarked values:", titanic_clean["Embarked"].dropna().unique())
     model_df = titanic_clean.copy()
@@ -153,26 +149,12 @@ def main():
     emb_cols = [c for c in model_df.columns if c.startswith("Embarked_")]
     print("New columns added:", emb_cols + ["Sex_bin"])
     print(model_df.head())
+    return model_df, emb_cols
 
-    # Task 8/9 — full model with Sex + Embarked
-    predictors_v2 = base_predictors + ["Sex_bin"] + emb_cols
-    X2 = model_df[predictors_v2]
-    y2 = model_df[target]
-    X2_train, X2_test, y2_train, y2_test = ms.train_test_split(
-        X2, y2, test_size=0.2, random_state=1, stratify=y2
-    )
-    log_reg_v2 = lm.LogisticRegression(max_iter=100_000)
-    log_reg_v2.fit(X2_train, y2_train)
-    y2_pred = log_reg_v2.predict(X2_test)
-    print("=== V2 (Sex + Embarked) ===")
-    print(metrics.classification_report(y2_test, y2_pred, zero_division=0))
-    print("Confusion Matrix:")
-    print(metrics.confusion_matrix(y2_test, y2_pred))
-    acc_v2 = metrics.accuracy_score(y2_test, y2_pred)
-    print("Accuracy:", acc_v2)
 
-    # Task 10 — CV baseline vs oversampled
+def cv_baseline_and_oversampled(X2, y2):
     cv = ms.StratifiedKFold(n_splits=5, shuffle=True, random_state=1)
+
     baseline_scores = ms.cross_val_score(
         lm.LogisticRegression(max_iter=100_000), X2, y2, cv=cv, scoring="accuracy"
     )
@@ -200,13 +182,17 @@ def main():
     print("Oversampled mean CV accuracy:{:.3f}".format(oversampled_scores.mean()))
 
     plt.figure(figsize=(6, 4))
-    plt.boxplot([baseline_scores, oversampled_scores], tick_labels=["Baseline", "Oversampled"])
+    plt.boxplot([baseline_scores, oversampled_scores],
+                tick_labels=["Baseline", "Oversampled"])
     plt.title("Cross-Validation Accuracy Comparison")
     plt.ylabel("Score")
     plt.grid(True)
     plt.show()
 
-    # Task 11 — Sensitivity / Specificity before/after oversampling
+    return baseline_scores, oversampled_scores, oversampled_pipeline
+
+
+def sensitivity_before_after(X2_train, X2_test, y2_train, y2_test, oversampled_pipeline):
     baseline_model = lm.LogisticRegression(max_iter=100_000)
     baseline_model.fit(X2_train, y2_train)
     y_base_pred = baseline_model.predict(X2_test)
@@ -226,7 +212,17 @@ def main():
     print(f"Sensitivity change: {sens_before:.3f} → {sens_after:.3f}")
     print(f"Specificity change: {spec_before:.3f} → {spec_after:.3f}")
 
-    # Task 12 — write report
+    return sens_before, spec_before, sens_after, spec_after
+
+
+def write_report(
+    titanic, titanic_clean,
+    acc_lr, conf_lr, y_test, y_pred,
+    acc_ones, all_ones,
+    acc_v2, conf_v2, y2_test, y2_pred,
+    baseline_scores, oversampled_scores,
+    sens_before, spec_before, sens_after, spec_after
+):
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write("TITANIC CLASSIFICATION ANALYSIS — RESULTS\n")
         f.write("=" * 50 + "\n\n")
@@ -237,7 +233,7 @@ def main():
         f.write("TASK 3 — BASELINE LOGISTIC REGRESSION (numeric features)\n")
         f.write(f"Accuracy: {acc_lr:.4f}\n")
         f.write("Confusion Matrix:\n")
-        f.write(str(metrics.confusion_matrix(y_test, y_pred)) + "\n\n")
+        f.write(str(conf_lr) + "\n\n")
 
         f.write("TASK 6 — ALL-ONES CLASSIFIER\n")
         f.write(f"Accuracy: {acc_ones:.4f}\n")
@@ -247,7 +243,7 @@ def main():
         f.write("TASK 9 — LOGISTIC REGRESSION WITH Sex + Embarked\n")
         f.write(f"Accuracy: {acc_v2:.4f}\n")
         f.write("Confusion Matrix:\n")
-        f.write(str(metrics.confusion_matrix(y2_test, y2_pred)) + "\n\n")
+        f.write(str(conf_v2) + "\n\n")
 
         f.write("TASK 10 — CROSS-VALIDATION RESULTS (5-fold stratified)\n")
         f.write("Baseline fold accuracies:\n")
@@ -273,6 +269,56 @@ def main():
         f.write("END OF REPORT\n")
 
     print(f"\nTask 12 complete! Results saved to: {OUTPUT_FILE}")
+
+
+def main():
+    titanic, titanic_clean = load_and_clean(FILE_PATH)
+
+    # Task 3–6: baseline numeric model + plots + VIF + all-ones
+    base_predictors = ["Pclass", "Age", "SibSp", "Parch", "Fare"]
+    target = "Survived"
+    corr_with_y = titanic_clean[base_predictors + [target]].corr()[target].drop(target)
+    print("Correlation of predictors with Survived:")
+    print(corr_with_y, "\n")
+    predictors = [c for c, v in corr_with_y.items() if abs(v) >= 0.1]
+    print("Keeping predictors with |corr| >= 0.1:")
+    print(predictors, "\n")
+
+    X_num = titanic_clean[predictors]
+    y = titanic_clean[target]
+    log_reg, (X_train, X_test, y_test, _, y_pred, conf_lr, acc_lr) = run_logistic(
+        X_num, y, "Baseline Classification (numeric only)", max_iter=1000
+    )
+    plot_basics(titanic_clean, predictors, log_reg)
+    check_linearity_vif(titanic_clean, predictors)
+    print("Unique prediction values:", np.unique(y_pred))
+    print("Prediction sample (first 20):", y_pred[:20])
+    all_ones, acc_ones = all_ones_comparison(y_test, y_pred, acc_lr)
+
+    # Tasks 7–11: encode Sex/Embarked + full model + CV + oversampling + sensitivity
+    model_df, emb_cols = encode_sex_embarked(titanic_clean)
+    predictors_v2 = base_predictors + ["Sex_bin"] + emb_cols
+    X2 = model_df[predictors_v2]
+    y2 = model_df[target]
+    _, (X2_train, X2_test, y2_train, y2_test, y2_pred, conf_v2, acc_v2) = run_logistic(
+        X2, y2, "V2 (Sex + Embarked)", max_iter=100_000
+    )
+    baseline_scores, oversampled_scores, oversampled_pipeline = cv_baseline_and_oversampled(
+        X2, y2
+    )
+    sens_before, spec_before, sens_after, spec_after = sensitivity_before_after(
+        X2_train, X2_test, y2_train, y2_test, oversampled_pipeline
+    )
+
+    # Task 12: report
+    write_report(
+        titanic, titanic_clean,
+        acc_lr, conf_lr, y_test, y_pred,
+        acc_ones, all_ones,
+        acc_v2, conf_v2, y2_test, y2_pred,
+        baseline_scores, oversampled_scores,
+        sens_before, spec_before, sens_after, spec_after,
+    )
 
 
 if __name__ == "__main__":

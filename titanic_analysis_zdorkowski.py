@@ -247,7 +247,7 @@ response = "Survived"
 X2 = titanic_model[predictors_v2]
 y2 = titanic_model[response]
 
-# Use the fair split (stratify=y2) and the same random_state=1 per earlier instruction
+# Use the fair split (w/ stratify=y2) and the same random_state=1 per earlier instruction
 X2_train, X2_test, y2_train, y2_test = ms.train_test_split(
     X2, y2, test_size=0.2, random_state=1, stratify=y2
 )
